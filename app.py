@@ -13,11 +13,24 @@ MODEL_PATH = "random_forest_model.joblib"
 NPZ_PATH   = "fitur_histogram.npz"
 
 CLASS_TIPS = {
-    "BrownSpot": "Bercak cokelat pada daun, periksa pola titik menyebar.",
-    "LeafBlast": "Daun berbentuk belah ketupat; sering muncul memanjang pada daun.",
-    "Hispa": "Kerusakan karena serangga, tampak goresan/strip dan skeletonisasi.",
-    "Healthy": "Daun tampak hijau merata tanpa bercak/lesi mencolok."
+    "BrownSpot": (
+        "Daun menunjukkan bercak-bercak cokelat kecil yang menyebar. "
+        "Biasanya disebabkan oleh jamur. Periksa pola titik dan kelembapan area sawah."
+    ),
+    "LeafBlast": (
+        "Terdapat bercak besar berbentuk belah ketupat atau memanjang pada daun. "
+        "Sering muncul saat kondisi lembap dan pupuk nitrogen berlebih."
+    ),
+    "Hispa": (
+        "Daun terlihat bergaris atau terkikis seperti goresan akibat serangan serangga. "
+        "Biasanya terjadi karena kumbang Hispa memakan jaringan daun."
+    ),
+    "Healthy": (
+        "Daun terlihat hijau segar dan merata tanpa bercak atau lesi yang mencolok. "
+        "Tanaman berada dalam kondisi sehat."
+    )
 }
+
 
 # ============================================================
 # Load Artifacts
@@ -65,9 +78,9 @@ def predict_image(file_bytes, model, labels_map) -> Tuple[Optional[str], Optiona
 # ============================================================
 def build_conclusion(label: str, proba: Optional[Dict[str, float]]) -> str:
     if not proba:
-        base = f"**Kesimpulan:** Model memprediksi kelas **{label}** berdasarkan analisis histogram warna daun."
-        tip  = CLASS_TIPS.get(label, "")
-        return base + (f"\n\n**Catatan:** {tip}" if tip else "")
+        base = f"🌱 **Kesimpulan:** Model memprediksi daun padi ini termasuk kategori **{label}** berdasarkan pola warna yang dianalisis."
+        tip = CLASS_TIPS.get(label, "")
+        return base + (f"\n\nℹ️ **Info tambahan:** {tip}" if tip else "")
 
     items = list(proba.items())
     top_label, top_conf = items[0][0], items[0][1]
@@ -75,37 +88,45 @@ def build_conclusion(label: str, proba: Optional[Dict[str, float]]) -> str:
 
     if top_conf >= 0.80:
         conf_text = "tinggi"
-        advice = "Hasil ini **cukup dapat diandalkan**."
+        advice = "Model cukup yakin dengan hasil ini. Kamu bisa menjadikannya referensi utama."
     elif top_conf >= 0.60:
         conf_text = "menengah"
         advice = (
-            "Sebaiknya **verifikasi manual** (cek pola bercak/lesi) "
-            "atau ambil ulang foto dengan pencahayaan merata."
+            "Model cukup yakin, tetapi akan lebih baik kalau kamu cek ulang pola bercak/lesi "
+            "atau ambil foto lain dengan pencahayaan lebih merata."
         )
     else:
         conf_text = "rendah"
         advice = (
-            "Model **kurang yakin**. Disarankan unggah foto lain (pencahayaan alami, fokus pada daun) "
-            "atau lakukan pemeriksaan lebih lanjut."
+            "Model kurang yakin. Coba unggah foto lain dengan pencahayaan alami, fokus pada daun, "
+            "atau lakukan pemeriksaan manual agar lebih pasti."
         )
 
     tip = CLASS_TIPS.get(top_label, "")
 
     lines = []
-    lines.append(f"**Kesimpulan:** Citra **kemungkinan besar adalah `{top_label}`** "
-                 f"dengan **kepercayaan {top_conf:.0%}** (keyakinan {conf_text}).")
+    lines.append(
+        f"🌾 **Kesimpulan:** Berdasarkan analisis warna, daun ini **kemungkinan besar termasuk kategori `{top_label}`** "
+        f"dengan tingkat keyakinan **{top_conf:.0%} ({conf_text})**."
+    )
+
     if second:
-        lines.append(f"Prediksi alternatif: `{second[0]}` ({second[1]:.0%}).")
+        lines.append(
+            f"🔎 Model juga melihat kemungkinan lain yaitu **`{second[0]}`** "
+            f"dengan peluang sekitar **{second[1]:.0%}**."
+        )
 
     if tip:
-        lines.append(f"**Catatan `{top_label}`:** {tip}")
+        lines.append(f"ℹ️ **Tentang `{top_label}`:** {tip}")
 
     lines.append(
-        f"**Rekomendasi:** {advice} "
-        "Hindari bayangan keras, pantulan kuat, dan pastikan daun memenuhi area gambar."
+        f"💡 **Saran:** {advice} "
+        "Pastikan foto diambil dengan pencahayaan yang baik, tanpa bayangan tajam, "
+        "dan daun memenuhi area gambar untuk hasil prediksi yang lebih akurat."
     )
 
     return "\n\n".join(lines)
+
 
 # ============================================================
 # UI
