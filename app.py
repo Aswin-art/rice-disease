@@ -10,7 +10,7 @@ from typing import Dict, Tuple, Optional
 st.set_page_config(page_title="Deteksi Penyakit Daun Padi", page_icon="🌾")
 
 MODEL_PATH = "random_forest_model.joblib"
-NPZ_PATH   = "fitur_histogram.npz"
+
 SCALER_PATH = "scaler_padi.joblib"
 ENCODER_PATH = "label_encoder_padi.joblib"
 
@@ -42,9 +42,7 @@ def load_artifacts():
     model = joblib.load(MODEL_PATH)
     scaler = joblib.load(SCALER_PATH)
     encoder = joblib.load(ENCODER_PATH)
-    data = np.load(NPZ_PATH, allow_pickle=True)
-    labels_map = data["labels_map"]
-    return model, scaler, encoder, labels_map
+    return model, scaler, encoder
 
 # ============================================================
 # Feature Extraction
@@ -145,7 +143,7 @@ st.title("🌾 Deteksi Penyakit Daun Padi (Random Forest + Histogram)")
 st.write("Upload gambar daun padi lalu klik **Prediksi** untuk melihat hasil klasifikasi dan **kesimpulan** analisa.")
 
 uploaded = st.file_uploader("Upload gambar (.jpg/.jpeg/.png)", type=["jpg", "jpeg", "png"])
-model, scaler, encoder, labels_map = load_artifacts()
+model, scaler, encoder = load_artifacts()
 if uploaded is not None:
     if st.button("Prediksi"):
         label, proba, rgb, err = predict_image(uploaded.read(), model, scaler, encoder)
