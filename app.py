@@ -126,7 +126,7 @@ def build_conclusion(label: str, proba: Optional[Dict[str, float]]) -> str:
     if top_conf >= 0.80:
         conf_text = "tinggi"
         advice = "Model cukup yakin dengan hasil ini. Kamu bisa menjadikannya referensi utama."
-    elif top_conf >= 0.60:
+    elif top_conf >= 0.50:
         conf_text = "menengah"
         advice = (
             "Model cukup yakin, tetapi akan lebih baik kalau kamu cek ulang pola bercak/lesi "
