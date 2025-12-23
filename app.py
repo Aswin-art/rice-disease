@@ -144,9 +144,8 @@ def build_conclusion(label: str, proba: Optional[Dict[str, float]]) -> str:
 st.title("🌾 Deteksi Penyakit Daun Padi (Random Forest + Histogram)")
 st.write("Upload gambar daun padi lalu klik **Prediksi** untuk melihat hasil klasifikasi dan **kesimpulan** analisa.")
 
+uploaded = st.file_uploader("Upload gambar (.jpg/.jpeg/.png)", type=["jpg", "jpeg", "png"])
 model, scaler, encoder, labels_map = load_artifacts()
-
-if uploaded is not None:
     if st.button("Prediksi"):
         label, proba, rgb, err = predict_image(uploaded.read(), model, scaler, encoder)
         if err:
