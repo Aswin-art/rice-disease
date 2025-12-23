@@ -3,4 +3,6 @@ numpy
 opencv-python-headless
 joblib
 scikit-learn
+scikit-image
+scipy
 pillow

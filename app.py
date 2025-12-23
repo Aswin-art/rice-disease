@@ -3,6 +3,8 @@ import numpy as np
 import cv2
 import joblib
 from typing import Dict, Tuple, Optional
+from skimage.feature import graycomatrix, graycoprops, local_binary_pattern
+from scipy.stats import skew
 
 # ============================================================
 # App Config
@@ -10,9 +12,9 @@ from typing import Dict, Tuple, Optional
 st.set_page_config(page_title="Deteksi Penyakit Daun Padi", page_icon="🌾")
 
 MODEL_PATH = "random_forest_model.joblib"
-
 SCALER_PATH = "scaler_padi.joblib"
 ENCODER_PATH = "label_encoder_padi.joblib"
+IMG_SIZE = (256, 256)
 
 CLASS_TIPS = {
     "BrownSpot": (
@@ -45,13 +47,40 @@ def load_artifacts():
     return model, scaler, encoder
 
 # ============================================================
-# Feature Extraction
+# Feature Extraction (sama dengan training)
 # ============================================================
-def extract_color_histogram_bgr(bgr_image, bins=(8, 8, 8)):
-    rgb = cv2.cvtColor(bgr_image, cv2.COLOR_BGR2RGB)
-    hist = cv2.calcHist([rgb], [0, 1, 2], None, bins, [0, 256, 0, 256, 0, 256])
-    cv2.normalize(hist, hist)
-    return hist.flatten()
+def extract_features_v2(img):
+    """Extract 43 features: HSV color stats + GLCM texture + LBP histogram"""
+    img = cv2.resize(img, IMG_SIZE)
+
+    # A. Segmen HSV
+    hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+    lower = np.array([0, 20, 20])
+    upper = np.array([180, 255, 255])
+    mask = cv2.inRange(hsv, lower, upper)
+
+    # B. Warna (9 fitur: 3 channels × 3 stats)
+    color_feats = []
+    for i in range(3):
+        res = hsv[:,:,i][mask > 0]
+        if len(res) > 0:
+            color_feats.extend([np.mean(res), np.std(res), skew(res)])
+        else:
+            color_feats.extend([0, 0, 0])
+
+    # C. Tekstur GLCM (8 fitur: 4 properties × 2 angles)
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    glcm = graycomatrix(gray, [1], [0, np.pi/4], levels=256, symmetric=True, normed=True)
+    for p in ['contrast', 'homogeneity', 'energy', 'correlation']:
+        color_feats.extend(graycoprops(glcm, p).flatten())
+
+    # D. Tekstur LBP (26 fitur: 26 bins histogram)
+    lbp = local_binary_pattern(gray, 24, 3, method='uniform')
+    (hist, _) = np.histogram(lbp.ravel(), bins=np.arange(0, 27), range=(0, 26))
+    hist = hist.astype("float")
+    hist /= (hist.sum() + 1e-7)
+
+    return np.hstack([color_feats, hist])
 
 # ============================================================
 # Inference
@@ -62,9 +91,9 @@ def predict_image(file_bytes, model, scaler, encoder) -> Tuple[Optional[str], Op
     if bgr is None:
         return None, None, None, "Gambar tidak valid atau format tidak didukung."
 
-    # Extract raw histogram features (512)
-    raw_feat = extract_color_histogram_bgr(bgr).reshape(1, -1)
-    # Scale features to match model's expected input dimensions
+    # Extract 43 features (HSV + GLCM + LBP)
+    raw_feat = extract_features_v2(bgr).reshape(1, -1)
+    # Scale features
     feat = scaler.transform(raw_feat)
     # Predict class index
     pred_idx = model.predict(feat)[0]
@@ -114,7 +143,7 @@ def build_conclusion(label: str, proba: Optional[Dict[str, float]]) -> str:
 
     lines = []
     lines.append(
-        f"🌾 **Kesimpulan:** Berdasarkan analisis warna, daun ini **kemungkinan besar termasuk kategori `{top_label}`** "
+        f"🌾 **Kesimpulan:** Berdasarkan analisis fitur warna dan tekstur, daun ini **kemungkinan besar termasuk kategori `{top_label}`** "
         f"dengan tingkat keyakinan **{top_conf:.0%} ({conf_text})**."
     )
 
@@ -139,11 +168,12 @@ def build_conclusion(label: str, proba: Optional[Dict[str, float]]) -> str:
 # ============================================================
 # UI
 # ============================================================
-st.title("🌾 Deteksi Penyakit Daun Padi (Random Forest + Histogram)")
+st.title("🌾 Deteksi Penyakit Daun Padi (Random Forest)")
 st.write("Upload gambar daun padi lalu klik **Prediksi** untuk melihat hasil klasifikasi dan **kesimpulan** analisa.")
 
 uploaded = st.file_uploader("Upload gambar (.jpg/.jpeg/.png)", type=["jpg", "jpeg", "png"])
 model, scaler, encoder = load_artifacts()
+
 if uploaded is not None:
     if st.button("Prediksi"):
         label, proba, rgb, err = predict_image(uploaded.read(), model, scaler, encoder)
@@ -151,12 +181,6 @@ if uploaded is not None:
             st.error(err)
         else:
             st.image(rgb, caption="Gambar diunggah", use_container_width=True)
-            st.subheader("Hasil Prediksi")
-            st.markdown(f"- **Kelas utama:** `{label}`")
-            if proba:
-                st.markdown("- **Probabilitas per kelas:**")
-                st.bar_chart(proba)
-
             st.subheader("Hasil Prediksi")
             st.markdown(f"- **Kelas utama:** `{label}`")
             if proba:
