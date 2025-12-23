@@ -146,12 +146,18 @@ st.write("Upload gambar daun padi lalu klik **Prediksi** untuk melihat hasil kla
 
 uploaded = st.file_uploader("Upload gambar (.jpg/.jpeg/.png)", type=["jpg", "jpeg", "png"])
 model, scaler, encoder, labels_map = load_artifacts()
+if uploaded is not None:
     if st.button("Prediksi"):
         label, proba, rgb, err = predict_image(uploaded.read(), model, scaler, encoder)
         if err:
             st.error(err)
         else:
             st.image(rgb, caption="Gambar diunggah", use_container_width=True)
+            st.subheader("Hasil Prediksi")
+            st.markdown(f"- **Kelas utama:** `{label}`")
+            if proba:
+                st.markdown("- **Probabilitas per kelas:**")
+                st.bar_chart(proba)
 
             st.subheader("Hasil Prediksi")
             st.markdown(f"- **Kelas utama:** `{label}`")
